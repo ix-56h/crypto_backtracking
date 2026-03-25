@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -14,24 +15,17 @@ from trade_simulator.api import fetch_ohlcv, parse_time_range, validate_feed, va
 from trade_simulator.engine import run_simulation
 from trade_simulator.strategy import Strategy
 
-
-FEED = "BTCUSD"
-CANDLE_TYPE = "15"
-TIME_RANGE = "1y"
-
-# Default to champions; override with env or arg
-import os
-_dir_name = os.environ.get("STRATEGY_SET", "champions")
-STRATEGY_DIR = Path(__file__).resolve().parent.parent / "strategies" / _dir_name
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_STRATEGY_DIR = PROJECT_ROOT / "strategies"
 
 
-def fetch_data():
+def fetch_data(feed: str, candle_type: str, time_range: str):
     """Fetch OHLCV data once."""
-    feed = validate_feed(FEED)
-    candle_type = validate_type(CANDLE_TYPE)
-    from_ms, till_ms = parse_time_range(TIME_RANGE)
+    feed = validate_feed(feed)
+    candle_type = validate_type(candle_type)
+    from_ms, till_ms = parse_time_range(time_range)
 
-    print(f"Fetching {feed} {candle_type}m candles for {TIME_RANGE}...")
+    print(f"Fetching {feed} {candle_type}m candles for {time_range}...")
 
     def _progress(fetched: int, chunk: int):
         print(f"  chunk {chunk}: {fetched} candles...", flush=True)
@@ -42,22 +36,31 @@ def fetch_data():
     return candles
 
 
-def run_all_strategies(candles):
+def find_strategies(strategy_dir: Path) -> list[Path]:
+    """Find all .json strategy files, recursively if top-level strategies/ dir."""
+    return sorted(strategy_dir.rglob("*.json"))
+
+
+def run_all_strategies(candles, strategy_dir: Path, candle_type: str, feed: str, time_range: str):
     """Run all strategy files and collect results."""
-    strategy_files = sorted(STRATEGY_DIR.glob("*.json"))
+    strategy_files = find_strategies(strategy_dir)
     if not strategy_files:
-        print(f"No strategy files found in {STRATEGY_DIR}")
+        print(f"No strategy files found in {strategy_dir}")
         return []
+
+    print(f"\nFound {len(strategy_files)} strategies in {strategy_dir}")
 
     results = []
     for sf in strategy_files:
-        name = sf.stem
+        # Show path relative to strategy dir for nested folders
+        rel = sf.relative_to(strategy_dir)
+        name = str(rel.with_suffix(""))
         print(f"\n{'='*60}")
         print(f"  Running: {name}")
         print(f"{'='*60}")
 
         strategy = Strategy.from_file(sf)
-        result = run_simulation(candles, strategy, CANDLE_TYPE, FEED, TIME_RANGE)
+        result = run_simulation(candles, strategy, candle_type, feed, time_range)
         results.append((name, result))
 
         # Quick summary
@@ -152,8 +155,30 @@ def print_comparison_table(results):
 
 
 def main():
-    candles = fetch_data()
-    results = run_all_strategies(candles)
+    parser = argparse.ArgumentParser(
+        description="Batch backtest: fetch data once, run all strategies, compare results."
+    )
+    parser.add_argument("--feed", default="BTCUSD", choices=["BTCUSD", "SOLUSD", "ETHUSD"],
+                        help="Trading pair (default: BTCUSD)")
+    parser.add_argument("--type", dest="candle_type", default="15", choices=["5", "15"],
+                        help="Candle width in minutes (default: 15)")
+    parser.add_argument("--range", dest="time_range", default="1y",
+                        help="Data range (default: 1y)")
+    parser.add_argument("--strategies", default=None,
+                        help="Path to strategy directory (default: strategies/ recursive)")
+    args = parser.parse_args()
+
+    if args.strategies:
+        strategy_dir = Path(args.strategies).resolve()
+    else:
+        strategy_dir = DEFAULT_STRATEGY_DIR
+
+    if not strategy_dir.is_dir():
+        print(f"Error: strategy directory not found: {strategy_dir}")
+        sys.exit(1)
+
+    candles = fetch_data(args.feed, args.candle_type, args.time_range)
+    results = run_all_strategies(candles, strategy_dir, args.candle_type, args.feed, args.time_range)
     print_comparison_table(results)
 
 
