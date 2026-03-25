@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from datetime import datetime
 
 from trade_simulator.api import get_candle_minutes
@@ -334,6 +335,52 @@ def run_simulation(
     gross_profit = sum(p.pnl for p in wins) if wins else 0.0
     gross_loss = abs(sum(p.pnl for p in losses)) if losses else 0.0
 
+    avg_win = (sum(win_pnls) / len(win_pnls)) if win_pnls else 0.0
+    avg_loss_val = (sum(loss_pnls) / len(loss_pnls)) if loss_pnls else 0.0
+    win_rate = (len(wins) / len(closed) * 100) if closed else 0.0
+
+    # Expectancy = (WR × AvgWin) - ((1-WR) × |AvgLoss|)
+    wr_frac = win_rate / 100
+    expectancy = (wr_frac * avg_win) - ((1 - wr_frac) * abs(avg_loss_val)) if closed else 0.0
+
+    # Sharpe-like ratio: mean PnL per trade / stddev of PnL per trade
+    sharpe_ratio = 0.0
+    if len(closed) >= 2:
+        pnl_list = [p.pnl for p in closed]
+        mean_pnl = total_pnl / len(closed)
+        variance = sum((x - mean_pnl) ** 2 for x in pnl_list) / (len(pnl_list) - 1)
+        std_pnl = math.sqrt(variance) if variance > 0 else 0.0
+        sharpe_ratio = (mean_pnl / std_pnl) if std_pnl > 1e-10 else 0.0
+
+    # Average trade duration in minutes
+    avg_duration_minutes = 0.0
+    if closed:
+        durations = []
+        for p in closed:
+            if p.exit_time and p.entry_time:
+                dt = (p.exit_time - p.entry_time).total_seconds() / 60
+                durations.append(dt)
+        if durations:
+            avg_duration_minutes = sum(durations) / len(durations)
+
+    # Max consecutive wins / losses
+    max_cons_wins = 0
+    max_cons_losses = 0
+    cur_wins = 0
+    cur_losses = 0
+    for p in closed:
+        if p.pnl > 0:
+            cur_wins += 1
+            cur_losses = 0
+            max_cons_wins = max(max_cons_wins, cur_wins)
+        else:
+            cur_losses += 1
+            cur_wins = 0
+            max_cons_losses = max(max_cons_losses, cur_losses)
+
+    # Recovery factor: total PnL / max drawdown
+    recovery_factor = (total_pnl / max_drawdown) if max_drawdown > 0 else 0.0
+
     # Per-rule breakdown
     per_rule: dict[str, dict] = {}
     for rule in strategy.rules:
@@ -359,17 +406,23 @@ def run_simulation(
         total_trades=len(closed),
         winning_trades=len(wins),
         losing_trades=len(losses),
-        win_rate=(len(wins) / len(closed) * 100) if closed else 0.0,
+        win_rate=win_rate,
         total_pnl=total_pnl,
         total_pnl_pct=(total_pnl / strategy.initial_capital * 100) if strategy.initial_capital > 0 else 0.0,
         total_fees=total_fees,
-        avg_win=(sum(win_pnls) / len(win_pnls)) if win_pnls else 0.0,
-        avg_loss=(sum(loss_pnls) / len(loss_pnls)) if loss_pnls else 0.0,
+        avg_win=avg_win,
+        avg_loss=avg_loss_val,
         best_trade=max(win_pnls) if win_pnls else 0.0,
         worst_trade=min(loss_pnls) if loss_pnls else 0.0,
         max_drawdown=max_drawdown,
         max_drawdown_pct=max_dd_pct,
         profit_factor=(gross_profit / gross_loss) if gross_loss > 0 else float("inf") if gross_profit > 0 else 0.0,
+        expectancy=expectancy,
+        sharpe_ratio=sharpe_ratio,
+        avg_duration_minutes=avg_duration_minutes,
+        max_consecutive_wins=max_cons_wins,
+        max_consecutive_losses=max_cons_losses,
+        recovery_factor=recovery_factor,
         per_rule=per_rule,
         positions=closed,
     )

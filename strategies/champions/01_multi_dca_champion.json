@@ -1,0 +1,27 @@
+{
+  "_description": "Best overall: multi-level DCA on deep dips with wide safety SL. Based on v2/04_multi_deep_dca which achieved 90.2% WR, PF 1.23, 133 trades.",
+  "initial_capital": 5000,
+  "fee_pct": 0.1,
+  "max_concurrent_positions": 15,
+  "position_sizing": { "type": "fixed", "value": 150 },
+  "rules": [
+    {
+      "id": "dca_l1",
+      "entry": { "type": "price_drop", "percentage": 3.0, "window": "2h" },
+      "exit": { "take_profit_pct": 2.0, "stop_loss_pct": 15.0 },
+      "max_positions": 5
+    },
+    {
+      "id": "dca_l2",
+      "entry": { "type": "price_drop", "percentage": 5.0, "window": "4h" },
+      "exit": { "take_profit_pct": 3.0, "stop_loss_pct": 15.0 },
+      "max_positions": 5
+    },
+    {
+      "id": "dca_l3",
+      "entry": { "type": "price_drop", "percentage": 7.0, "window": "4h" },
+      "exit": { "take_profit_pct": 4.0, "stop_loss_pct": 15.0 },
+      "max_positions": 5
+    }
+  ]
+}

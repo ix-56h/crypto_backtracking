@@ -1,0 +1,21 @@
+{
+  "_description": "Dual-level deep dip DCA: 5% and 7% dip entries with generous TPs and wide SL. Best of DCA + deep reversion.",
+  "initial_capital": 5000,
+  "fee_pct": 0.1,
+  "max_concurrent_positions": 10,
+  "position_sizing": { "type": "fixed", "value": 200 },
+  "rules": [
+    {
+      "id": "level_5pct",
+      "entry": { "type": "price_drop", "percentage": 5.0, "window": "4h" },
+      "exit": { "take_profit_pct": 3.0, "stop_loss_pct": 18.0 },
+      "max_positions": 5
+    },
+    {
+      "id": "level_7pct",
+      "entry": { "type": "price_drop", "percentage": 7.0, "window": "4h" },
+      "exit": { "take_profit_pct": 4.5, "stop_loss_pct": 18.0 },
+      "max_positions": 5
+    }
+  ]
+}

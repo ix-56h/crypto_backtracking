@@ -36,6 +36,9 @@ def generate_summary(result: TradeResult, output_path: str | Path) -> Path:
             "total_pnl_pct": round(result.total_pnl_pct, 2),
             "total_fees": round(result.total_fees, 2),
             "profit_factor": round(result.profit_factor, 4) if result.profit_factor != float("inf") else "inf",
+            "expectancy": round(result.expectancy, 4),
+            "sharpe_ratio": round(result.sharpe_ratio, 4),
+            "recovery_factor": round(result.recovery_factor, 4),
         },
         "trades": {
             "total": result.total_trades,
@@ -48,10 +51,13 @@ def generate_summary(result: TradeResult, output_path: str | Path) -> Path:
             "avg_loss": round(result.avg_loss, 2),
             "best_trade": round(result.best_trade, 2),
             "worst_trade": round(result.worst_trade, 2),
+            "avg_duration_minutes": round(result.avg_duration_minutes, 1),
         },
         "risk": {
             "max_drawdown": round(result.max_drawdown, 2),
             "max_drawdown_pct": round(result.max_drawdown_pct, 2),
+            "max_consecutive_wins": result.max_consecutive_wins,
+            "max_consecutive_losses": result.max_consecutive_losses,
         },
         "per_rule": {
             rule_id: {
@@ -107,6 +113,10 @@ def print_summary(result: TradeResult) -> None:
     click.echo(f"    Total Fees:   ${result.total_fees:,.2f}")
     pf_str = f"{result.profit_factor:.2f}" if result.profit_factor != float("inf") else "∞"
     click.echo(f"    Profit Factor: {pf_str}")
+    exp_color = "green" if result.expectancy > 0 else "red"
+    click.echo(f"    Expectancy:   " + click.style(f"${result.expectancy:,.4f}/trade", fg=exp_color))
+    click.echo(f"    Sharpe Ratio: {result.sharpe_ratio:.4f}")
+    click.echo(f"    Recovery:     {result.recovery_factor:.2f}")
     click.echo()
 
     click.echo(click.style("  Trades", bold=True))
@@ -126,6 +136,11 @@ def print_summary(result: TradeResult) -> None:
 
     click.echo(click.style("  Risk", bold=True))
     click.echo(f"    Max Drawdown: ${result.max_drawdown:,.2f} ({result.max_drawdown_pct:.2f}%)")
+    click.echo(f"    Max Consec W: {result.max_consecutive_wins}")
+    click.echo(f"    Max Consec L: {result.max_consecutive_losses}")
+    if result.avg_duration_minutes > 0:
+        hrs = result.avg_duration_minutes / 60
+        click.echo(f"    Avg Duration: {hrs:.1f}h ({result.avg_duration_minutes:.0f}m)")
     click.echo()
 
     # Per-rule breakdown

@@ -1,0 +1,25 @@
+{
+  "initial_capital": 5000,
+  "fee_pct": 0.1,
+  "max_concurrent_positions": 10,
+  "position_sizing": { "type": "fixed", "value": 150 },
+  "rules": [
+    {
+      "id": "cascade_base",
+      "entry": { "type": "price_drop", "percentage": 3.0, "window": "1h" },
+      "exit": { "take_profit_pct": 2.0 },
+      "max_positions": 5
+    },
+    {
+      "id": "cascade_deep",
+      "entry": { "type": "price_drop", "percentage": 3.0, "window": "2h" },
+      "exit": { "take_profit_pct": 3.0 },
+      "max_positions": 5,
+      "depends_on": {
+        "rule_id": "cascade_base",
+        "condition": "has_open_position",
+        "drop_from": "parent_entry"
+      }
+    }
+  ]
+}

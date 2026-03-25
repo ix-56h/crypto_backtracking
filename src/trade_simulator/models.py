@@ -85,5 +85,11 @@ class TradeResult:
     max_drawdown: float
     max_drawdown_pct: float
     profit_factor: float
+    expectancy: float = 0.0
+    sharpe_ratio: float = 0.0
+    avg_duration_minutes: float = 0.0
+    max_consecutive_wins: int = 0
+    max_consecutive_losses: int = 0
+    recovery_factor: float = 0.0
     per_rule: dict[str, dict] = field(default_factory=dict)
     positions: list[Position] = field(default_factory=list)

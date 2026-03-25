@@ -1,0 +1,37 @@
+{
+  "_description": "Cascade DCA: base entry on 3% dip, child adds at 2% more from parent. Wide SL for recovery. v3/04 achieved 88.8% WR, PF 1.09, 161 trades.",
+  "initial_capital": 5000,
+  "fee_pct": 0.1,
+  "max_concurrent_positions": 15,
+  "position_sizing": { "type": "fixed", "value": 150 },
+  "rules": [
+    {
+      "id": "base_3pct",
+      "entry": { "type": "price_drop", "percentage": 3.0, "window": "2h" },
+      "exit": { "take_profit_pct": 2.0, "stop_loss_pct": 15.0 },
+      "max_positions": 5
+    },
+    {
+      "id": "child_2pct",
+      "entry": { "type": "price_drop", "percentage": 2.0, "window": "4h" },
+      "exit": { "take_profit_pct": 3.0, "stop_loss_pct": 15.0 },
+      "max_positions": 5,
+      "depends_on": {
+        "rule_id": "base_3pct",
+        "condition": "has_open_position",
+        "drop_from": "parent_entry"
+      }
+    },
+    {
+      "id": "child_4pct",
+      "entry": { "type": "price_drop", "percentage": 4.0, "window": "4h" },
+      "exit": { "take_profit_pct": 4.0, "stop_loss_pct": 15.0 },
+      "max_positions": 5,
+      "depends_on": {
+        "rule_id": "base_3pct",
+        "condition": "has_open_position",
+        "drop_from": "parent_entry"
+      }
+    }
+  ]
+}

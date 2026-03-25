@@ -1,0 +1,32 @@
+{
+  "initial_capital": 5000,
+  "fee_pct": 0.1,
+  "max_concurrent_positions": 20,
+  "position_sizing": { "type": "fixed", "value": 100 },
+  "rules": [
+    {
+      "id": "grid_2pct",
+      "entry": { "type": "price_drop", "percentage": 2.0, "window": "1h" },
+      "exit": { "take_profit_pct": 1.5, "stop_loss_pct": 12.0 },
+      "max_positions": 5
+    },
+    {
+      "id": "grid_3pct",
+      "entry": { "type": "price_drop", "percentage": 3.0, "window": "2h" },
+      "exit": { "take_profit_pct": 2.0, "stop_loss_pct": 12.0 },
+      "max_positions": 5
+    },
+    {
+      "id": "grid_4pct",
+      "entry": { "type": "price_drop", "percentage": 4.0, "window": "2h" },
+      "exit": { "take_profit_pct": 2.5, "stop_loss_pct": 12.0 },
+      "max_positions": 5
+    },
+    {
+      "id": "grid_6pct",
+      "entry": { "type": "price_drop", "percentage": 6.0, "window": "4h" },
+      "exit": { "take_profit_pct": 4.0, "stop_loss_pct": 12.0 },
+      "max_positions": 5
+    }
+  ]
+}

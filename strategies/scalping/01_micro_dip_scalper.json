@@ -1,0 +1,14 @@
+{
+  "initial_capital": 5000,
+  "fee_pct": 0.1,
+  "max_concurrent_positions": 10,
+  "position_sizing": { "type": "fixed", "value": 100 },
+  "rules": [
+    {
+      "id": "micro_dip",
+      "entry": { "type": "price_drop", "percentage": 1.5, "window": "1h" },
+      "exit": { "take_profit_pct": 0.8 },
+      "max_positions": 10
+    }
+  ]
+}

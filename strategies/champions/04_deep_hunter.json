@@ -1,0 +1,15 @@
+{
+  "_description": "Very deep dip hunter — targets rare 6%+ dips with generous TP, no SL. v2/02 achieved 100% WR on BTC.",
+  "initial_capital": 5000,
+  "fee_pct": 0.1,
+  "max_concurrent_positions": 5,
+  "position_sizing": { "type": "fixed", "value": 300 },
+  "rules": [
+    {
+      "id": "deep_6pct",
+      "entry": { "type": "price_drop", "percentage": 6.0, "window": "4h" },
+      "exit": { "take_profit_pct": 4.0 },
+      "max_positions": 5
+    }
+  ]
+}

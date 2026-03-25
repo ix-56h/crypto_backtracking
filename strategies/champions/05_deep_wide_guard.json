@@ -1,0 +1,15 @@
+{
+  "_description": "Deep guarded with wider SL to survive ETH volatility. Testing if 18% SL improves ETH performance while maintaining BTC/SOL profitability.",
+  "initial_capital": 5000,
+  "fee_pct": 0.1,
+  "max_concurrent_positions": 5,
+  "position_sizing": { "type": "fixed", "value": 250 },
+  "rules": [
+    {
+      "id": "deep_wide",
+      "entry": { "type": "price_drop", "percentage": 5.0, "window": "4h" },
+      "exit": { "take_profit_pct": 3.0, "stop_loss_pct": 18.0 },
+      "max_positions": 5
+    }
+  ]
+}

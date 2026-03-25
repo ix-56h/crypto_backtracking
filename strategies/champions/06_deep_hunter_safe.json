@@ -1,0 +1,15 @@
+{
+  "_description": "Deep hunter with safety net. The 6% dip/4% TP was 100% on BTC and 90% on ETH but catastrophic on SOL without SL. Adding 20% SL as safety.",
+  "initial_capital": 5000,
+  "fee_pct": 0.1,
+  "max_concurrent_positions": 5,
+  "position_sizing": { "type": "fixed", "value": 300 },
+  "rules": [
+    {
+      "id": "deep_safe",
+      "entry": { "type": "price_drop", "percentage": 6.0, "window": "4h" },
+      "exit": { "take_profit_pct": 4.0, "stop_loss_pct": 20.0 },
+      "max_positions": 5
+    }
+  ]
+}
