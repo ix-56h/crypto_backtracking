@@ -36,6 +36,7 @@ from optim_shared import (
     evaluate_params,
     export_strategy,
     fetch_candles,
+    load_seed_strategy,
     print_best_params,
     print_result_metrics,
     run_simulation,
@@ -222,6 +223,7 @@ def run_ga(
     tournament_size: int,
     elite_count: int,
     seed: int | None,
+    seed_params: dict | None = None,
 ) -> tuple[dict, float, list[dict]]:
     """Run the genetic algorithm. Returns (best_params, best_score, history)."""
     rng = random.Random(seed)
@@ -229,6 +231,11 @@ def run_ga(
     # Initialize population
     print(f"  Initializing population of {pop_size}...")
     population = [random_individual(n_rules, rng) for _ in range(pop_size)]
+
+    # Inject seed strategy as the first individual
+    if seed_params:
+        population[0] = copy.deepcopy(seed_params)
+        _repair(population[0], n_rules)
 
     # Evaluate initial population
     fitness: list[float] = []
@@ -353,6 +360,8 @@ def main() -> None:
     parser.add_argument("--split", type=float, default=0.75, help="Train/validation split ratio (default: 0.75)")
     args = parser.parse_args()
 
+    seed_params = load_seed_strategy(args)
+
     feed = validate_feed(args.feed)
     candle_type = validate_type(args.candle_type)
 
@@ -378,7 +387,7 @@ def main() -> None:
         args.rules, args.entry_type, args.capital, args.objective,
         args.pop_size, args.generations, args.crossover_rate,
         args.mutation_rate, args.tournament_size, args.elite_count,
-        args.seed,
+        args.seed, seed_params,
     )
 
     # ── Results ──────────────────────────────────────────────────────────

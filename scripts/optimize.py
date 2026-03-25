@@ -41,6 +41,7 @@ from optim_shared import (
     compute_score,
     export_strategy,
     fetch_candles,
+    load_seed_strategy,
     print_best_params,
     print_result_metrics,
     split_candles,
@@ -186,6 +187,8 @@ def main() -> None:
     parser.add_argument("--split", type=float, default=0.75, help="Train/validation split ratio (default: 0.75)")
     args = parser.parse_args()
 
+    seed_params = load_seed_strategy(args)
+
     feed = validate_feed(args.feed)
     candle_type = validate_type(args.candle_type)
 
@@ -205,6 +208,9 @@ def main() -> None:
 
     sampler = TPESampler(seed=args.seed, n_startup_trials=20)
     study = optuna.create_study(direction="maximize", sampler=sampler)
+
+    if seed_params:
+        study.enqueue_trial(seed_params)
 
     objective_fn = create_objective(
         train_candles, candle_type, feed, args.time_range,

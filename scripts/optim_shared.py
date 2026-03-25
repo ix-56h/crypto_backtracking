@@ -234,11 +234,73 @@ def export_strategy(
     return path
 
 
+def extract_params_from_strategy(strategy: Strategy) -> tuple[dict, int, str]:
+    """Extract optimizer param dict from a Strategy object.
+
+    Returns (params_dict, n_rules, entry_type).
+    """
+    params: dict = {}
+    n_rules = len(strategy.rules)
+    entry_type = strategy.rules[0].entry.type.value
+
+    for i, rule in enumerate(strategy.rules):
+        suffix = f"_{i}" if n_rules > 1 else ""
+        params[f"entry_pct{suffix}"] = rule.entry.percentage
+        params[f"entry_window{suffix}"] = rule.entry.window
+        params[f"tp_pct{suffix}"] = rule.exit.take_profit_pct
+        params[f"sl_pct{suffix}"] = rule.exit.stop_loss_pct or SL_PCT_RANGE[0]
+        params[f"max_per_rule{suffix}"] = rule.max_positions
+
+    params["max_concurrent"] = strategy.max_concurrent_positions
+    params["position_size"] = strategy.position_sizing.value
+
+    return params, n_rules, entry_type
+
+
+def load_seed_strategy(args) -> dict | None:
+    """Load a strategy file as seed params and override args accordingly.
+
+    Returns the seed params dict, or None if --strategy was not provided.
+    Mutates args in-place to set rules, entry_type, and capital from the strategy.
+    """
+    if not args.strategy:
+        return None
+
+    from pathlib import Path
+
+    strategy = Strategy.from_file(args.strategy)
+    seed_params, n_rules, entry_type = extract_params_from_strategy(strategy)
+
+    args.rules = n_rules
+    args.entry_type = entry_type
+    args.capital = strategy.initial_capital
+
+    name = Path(args.strategy).name
+    print(f"\n  Seed strategy: {name} ({n_rules} rule{'s' if n_rules > 1 else ''}, {entry_type})")
+    for i in range(n_rules):
+        suffix = f"_{i}" if n_rules > 1 else ""
+        print(
+            f"    Rule {i}: entry={seed_params[f'entry_pct{suffix}']:.2f}% "
+            f"window={seed_params[f'entry_window{suffix}']} "
+            f"TP={seed_params[f'tp_pct{suffix}']:.2f}% "
+            f"SL={seed_params[f'sl_pct{suffix}']:.2f}%"
+        )
+    print(
+        f"    Global: max_concurrent={seed_params['max_concurrent']} "
+        f"position_size=${seed_params['position_size']:.0f} "
+        f"capital=${args.capital:.0f}"
+    )
+
+    return seed_params
+
+
 def add_common_args(parser) -> None:
     """Add CLI arguments shared across all optimizer scripts."""
     parser.add_argument("--feed", required=True, choices=["BTCUSD", "SOLUSD", "ETHUSD"])
     parser.add_argument("--type", dest="candle_type", required=True, choices=["5", "15"])
     parser.add_argument("--range", dest="time_range", default="1y", help="Data range (default: 1y)")
+    parser.add_argument("--strategy", default=None,
+                        help="Path to strategy JSON to use as optimization seed")
     parser.add_argument("--rules", type=int, default=1, choices=[1, 2, 3], help="Number of rules (default: 1)")
     parser.add_argument(
         "--entry-type", default="price_drop", choices=["price_drop", "price_rise"],

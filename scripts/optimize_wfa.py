@@ -45,6 +45,7 @@ from optim_shared import (
     compute_score,
     export_strategy,
     fetch_candles,
+    load_seed_strategy,
     print_best_params,
     print_result_metrics,
     run_simulation,
@@ -134,6 +135,7 @@ def inner_optimize(
     objective: str,
     n_trials: int,
     seed: int | None,
+    seed_params: dict | None = None,
 ) -> tuple[dict, float]:
     """Run a small Bayesian optimization on one fold's training data.
 
@@ -141,6 +143,9 @@ def inner_optimize(
     """
     sampler = TPESampler(seed=seed, n_startup_trials=min(10, n_trials // 3))
     study = optuna.create_study(direction="maximize", sampler=sampler)
+
+    if seed_params:
+        study.enqueue_trial(seed_params)
 
     def objective_fn(trial: optuna.Trial) -> float:
         params: dict = {}
@@ -264,6 +269,8 @@ def main() -> None:
     parser.add_argument("--trials", type=int, default=100, help="Optuna trials per fold (default: 100)")
     args = parser.parse_args()
 
+    seed_params = load_seed_strategy(args)
+
     feed = validate_feed(args.feed)
     candle_type = validate_type(args.candle_type)
 
@@ -305,7 +312,7 @@ def main() -> None:
         best_params, train_score = inner_optimize(
             train, candle_type, feed, args.time_range,
             args.rules, args.entry_type, args.capital, args.objective,
-            args.trials, fold_seed,
+            args.trials, fold_seed, seed_params,
         )
         all_best_params.append(best_params)
 
