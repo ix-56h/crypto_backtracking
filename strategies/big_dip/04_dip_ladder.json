@@ -1,0 +1,27 @@
+{
+  "_description": "DCA ladder: buy at -3%, -5%, -7% dips with escalating TP (4%, 5%, 6%). Catch the bounce at any depth.",
+  "initial_capital": 5000,
+  "fee_pct": 0.1,
+  "max_concurrent_positions": 9,
+  "position_sizing": { "type": "fixed", "value": 200 },
+  "rules": [
+    {
+      "id": "dip_3pct",
+      "entry": { "type": "price_drop", "percentage": 3.0, "window": "4h" },
+      "exit": { "take_profit_pct": 4.0, "stop_loss_pct": 10.0 },
+      "max_positions": 3
+    },
+    {
+      "id": "dip_5pct",
+      "entry": { "type": "price_drop", "percentage": 5.0, "window": "4h" },
+      "exit": { "take_profit_pct": 5.0, "stop_loss_pct": 12.0 },
+      "max_positions": 3
+    },
+    {
+      "id": "dip_7pct",
+      "entry": { "type": "price_drop", "percentage": 7.0, "window": "4h" },
+      "exit": { "take_profit_pct": 6.0, "stop_loss_pct": 15.0 },
+      "max_positions": 3
+    }
+  ]
+}

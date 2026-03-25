@@ -1,0 +1,15 @@
+{
+  "_description": "Buy rare 7% crashes, target 6% bounce. These are capitulation events with strong snapback.",
+  "initial_capital": 5000,
+  "fee_pct": 0.1,
+  "max_concurrent_positions": 5,
+  "position_sizing": { "type": "fixed", "value": 500 },
+  "rules": [
+    {
+      "id": "crash_7pct",
+      "entry": { "type": "price_drop", "percentage": 7.0, "window": "4h" },
+      "exit": { "take_profit_pct": 6.0, "stop_loss_pct": 15.0 },
+      "max_positions": 5
+    }
+  ]
+}

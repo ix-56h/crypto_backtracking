@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -17,7 +18,8 @@ from trade_simulator.strategy import Strategy
 FEEDS = ["BTCUSD", "SOLUSD", "ETHUSD"]
 CANDLE_TYPE = "15"
 TIME_RANGE = "1y"
-STRATEGY_DIR = Path(__file__).resolve().parent.parent / "strategies" / "champions"
+STRATEGY_SET = os.environ.get("STRATEGY_SET", "champions")
+STRATEGY_DIR = Path(__file__).resolve().parent.parent / "strategies" / STRATEGY_SET
 
 
 def fetch_data(feed: str):

@@ -1,0 +1,15 @@
+{
+  "_description": "Aggressive sizing on big dips. 5% of capital per position on 4%+ drops, target 5% bounce.",
+  "initial_capital": 5000,
+  "fee_pct": 0.1,
+  "max_concurrent_positions": 5,
+  "position_sizing": { "type": "percentage", "value": 5 },
+  "rules": [
+    {
+      "id": "whale_scoop",
+      "entry": { "type": "price_drop", "percentage": 4.0, "window": "4h" },
+      "exit": { "take_profit_pct": 5.0, "stop_loss_pct": 10.0 },
+      "max_positions": 5
+    }
+  ]
+}

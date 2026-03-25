@@ -1,0 +1,15 @@
+{
+  "_description": "Buy 3% dips (like 70k→68k), target 4% bounce (68k→70.7k). Protective SL at 10%.",
+  "initial_capital": 5000,
+  "fee_pct": 0.1,
+  "max_concurrent_positions": 5,
+  "position_sizing": { "type": "fixed", "value": 300 },
+  "rules": [
+    {
+      "id": "crash_3pct",
+      "entry": { "type": "price_drop", "percentage": 3.0, "window": "4h" },
+      "exit": { "take_profit_pct": 4.0, "stop_loss_pct": 10.0 },
+      "max_positions": 5
+    }
+  ]
+}
