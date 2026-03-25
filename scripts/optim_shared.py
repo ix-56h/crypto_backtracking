@@ -234,10 +234,32 @@ def export_strategy(
     return path
 
 
+def _snap_to_range(value: float, low: float, high: float, step: float) -> float:
+    """Clamp value to [low, high] and snap to nearest step."""
+    value = max(low, min(high, value))
+    return round(round((value - low) / step) * step + low, 10)
+
+
+def _nearest_window(window: str) -> str:
+    """Map an arbitrary window string to the nearest valid ENTRY_WINDOWS value."""
+    if window in ENTRY_WINDOWS:
+        return window
+    # Parse window to minutes for comparison
+    _units = {"m": 1, "h": 60, "d": 1440}
+    def _to_min(w: str) -> int:
+        for u, m in _units.items():
+            if w.endswith(u):
+                return int(w[:-len(u)]) * m
+        return 60  # fallback to 1h
+    target = _to_min(window)
+    return min(ENTRY_WINDOWS, key=lambda w: abs(_to_min(w) - target))
+
+
 def extract_params_from_strategy(strategy: Strategy) -> tuple[dict, int, str]:
     """Extract optimizer param dict from a Strategy object.
 
     Returns (params_dict, n_rules, entry_type).
+    Values are clamped to the optimizer search space bounds.
     """
     params: dict = {}
     n_rules = len(strategy.rules)
@@ -245,14 +267,27 @@ def extract_params_from_strategy(strategy: Strategy) -> tuple[dict, int, str]:
 
     for i, rule in enumerate(strategy.rules):
         suffix = f"_{i}" if n_rules > 1 else ""
-        params[f"entry_pct{suffix}"] = rule.entry.percentage
-        params[f"entry_window{suffix}"] = rule.entry.window
-        params[f"tp_pct{suffix}"] = rule.exit.take_profit_pct
-        params[f"sl_pct{suffix}"] = rule.exit.stop_loss_pct or SL_PCT_RANGE[0]
-        params[f"max_per_rule{suffix}"] = rule.max_positions
+        params[f"entry_pct{suffix}"] = _snap_to_range(
+            rule.entry.percentage, *ENTRY_PCT_RANGE, ENTRY_PCT_STEP,
+        )
+        params[f"entry_window{suffix}"] = _nearest_window(rule.entry.window)
+        params[f"tp_pct{suffix}"] = _snap_to_range(
+            rule.exit.take_profit_pct, *TP_PCT_RANGE, TP_PCT_STEP,
+        )
+        params[f"sl_pct{suffix}"] = _snap_to_range(
+            rule.exit.stop_loss_pct or SL_PCT_RANGE[0], *SL_PCT_RANGE, SL_PCT_STEP,
+        )
+        params[f"max_per_rule{suffix}"] = max(
+            MAX_PER_RULE_RANGE[0], min(MAX_PER_RULE_RANGE[1], rule.max_positions),
+        )
 
-    params["max_concurrent"] = strategy.max_concurrent_positions
-    params["position_size"] = strategy.position_sizing.value
+    params["max_concurrent"] = max(
+        MAX_CONCURRENT_RANGE[0],
+        min(MAX_CONCURRENT_RANGE[1], strategy.max_concurrent_positions),
+    )
+    params["position_size"] = _snap_to_range(
+        strategy.position_sizing.value, *POSITION_SIZE_RANGE, POSITION_SIZE_STEP,
+    )
 
     return params, n_rules, entry_type
 

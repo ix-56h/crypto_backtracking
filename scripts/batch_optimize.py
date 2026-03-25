@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import json
+import logging
 import os
 import sys
 import time
@@ -85,10 +86,14 @@ def _optimize_one(
         orig_result = run_simulation(candles, strategy, candle_type, feed, time_range)
         orig_score = compute_score(orig_result, objective)
 
-        # Run optimization (suppress console output and optuna warnings)
+        # Run optimization (suppress console output, warnings, and optuna logs)
+        optuna_logger = logging.getLogger("optuna")
+        prev_level = optuna_logger.level
+        optuna_logger.setLevel(logging.CRITICAL)
         with (
             open(os.devnull, "w") as devnull,
             contextlib.redirect_stdout(devnull),
+            contextlib.redirect_stderr(devnull),
             warnings.catch_warnings(),
         ):
             warnings.simplefilter("ignore")
@@ -111,6 +116,8 @@ def _optimize_one(
                     0.8, 0.15, 3, 2,
                     seed, seed_params,
                 )
+
+        optuna_logger.setLevel(prev_level)
 
         # Optimized performance on full data
         opt_strat = build_strategy(best_params, n_rules, entry_type, capital)
