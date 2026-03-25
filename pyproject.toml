@@ -13,6 +13,7 @@ dependencies = [
     "plotly>=5.18",
     "pandas>=2.2",
     "pydantic>=2.6",
+    "optuna>=4.8.0",
 ]
 
 [project.scripts]
