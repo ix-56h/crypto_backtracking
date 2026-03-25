@@ -286,6 +286,92 @@ uv run python -B scripts/optimize.py --feed ETHUSD --type 15 --objective sharpe 
 
 The best strategy is auto-exported to `output/optimized_<FEED>_<TYPE>m.json`.
 
+## Strategy Optimizer (Genetic Algorithm)
+
+Evolutionary search using tournament selection, BLX-α crossover, and Gaussian mutation:
+
+```bash
+# Default: 50 pop × 100 generations
+uv run python -B scripts/optimize_ga.py --feed BTCUSD --type 15
+
+# Smaller run for quick exploration
+uv run python -B scripts/optimize_ga.py --feed SOLUSD --type 15 \
+  --pop-size 30 --generations 50 --rules 2
+
+# Tune mutation and crossover rates
+uv run python -B scripts/optimize_ga.py --feed ETHUSD --type 15 \
+  --crossover-rate 0.9 --mutation-rate 0.2 --elite-count 3 --seed 42
+```
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--feed` | Trading pair | *required* |
+| `--type` | Candle width (`5` or `15`) | *required* |
+| `--range` | Data range | `1y` |
+| `--rules` | Number of rules (1–3) | `1` |
+| `--entry-type` | `price_drop` or `price_rise` | `price_drop` |
+| `--objective` | `composite`, `pnl`, `sharpe`, `profit_factor`, `expectancy` | `composite` |
+| `--capital` | Initial capital | `5000` |
+| `--pop-size` | Population size | `50` |
+| `--generations` | Number of generations | `100` |
+| `--crossover-rate` | Crossover probability | `0.8` |
+| `--mutation-rate` | Per-gene mutation probability | `0.15` |
+| `--tournament-size` | Tournament selection pool size | `3` |
+| `--elite-count` | Top N individuals kept unchanged | `2` |
+| `--split` | Train/validation split ratio | `0.75` |
+| `--seed` | Random seed | random |
+
+**How it works:**
+- Initializes a random population, evaluates fitness on the train set
+- Each generation: elites survive, parents selected via tournament, offspring created via BLX-α blend crossover (floats) and uniform crossover (categorical/integer), then Gaussian mutation
+- A `_repair()` step enforces constraints (e.g. max_per_rule sum ≤ max_concurrent)
+- Convergence chart shows best/mean/worst score per generation
+- Walk-forward validation and overfitting detection (same as Bayesian)
+
+## Walk-Forward Analysis (WFA)
+
+Multi-fold walk-forward optimization that tests parameter stability across time:
+
+```bash
+# Rolling mode: 6-month train → 2-month test, sliding forward
+uv run python -B scripts/optimize_wfa.py --feed BTCUSD --type 15
+
+# Anchored mode: training window grows from the start
+uv run python -B scripts/optimize_wfa.py --feed SOLUSD --type 15 \
+  --mode anchored --train-months 8 --test-months 2
+
+# More trials per fold for higher quality
+uv run python -B scripts/optimize_wfa.py --feed ETHUSD --type 15 \
+  --trials 300 --train-months 4 --test-months 1 --seed 42
+```
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--feed` | Trading pair | *required* |
+| `--type` | Candle width (`5` or `15`) | *required* |
+| `--range` | Data range | `1y` |
+| `--rules` | Number of rules (1–3) | `1` |
+| `--entry-type` | `price_drop` or `price_rise` | `price_drop` |
+| `--objective` | `composite`, `pnl`, `sharpe`, `profit_factor`, `expectancy` | `composite` |
+| `--capital` | Initial capital | `5000` |
+| `--mode` | `rolling` (fixed-size window slides) or `anchored` (train grows from start) | `rolling` |
+| `--train-months` | Training window in months | `6` |
+| `--test-months` | Test window in months | `2` |
+| `--trials` | Optuna trials per fold | `100` |
+| `--seed` | Random seed | random |
+
+**How it works:**
+- Splits data into sequential train/test folds based on calendar months
+- Each fold runs an independent Bayesian optimization (Optuna) on the training window
+- The best parameters from each fold are evaluated out-of-sample on the test window
+- Aggregates OOS metrics: total trades, win rate, PnL, and per-fold scores
+
+**Output includes:**
+- Per-fold table with train score, OOS trades, OOS PnL, OOS score
+- Parameter stability table showing mean/stddev for numeric params and most-common value for categorical
+- Consistency assessment: HIGH (≥75% profitable folds), MODERATE (≥50%), LOW (<50%)
+- Best OOS fold's strategy auto-exported to `output/optimized_<FEED>_<TYPE>m.json`
+
 ## Batch Testing
 
 ### Single-asset batch
@@ -366,7 +452,10 @@ scripts/
 ├── batch_backtest.py         # Single-asset batch runner
 ├── multi_asset_backtest.py   # Multi-asset batch runner
 ├── dip_analyzer.py           # Dip depth/bounce/duration analysis
-└── optimize.py               # Bayesian hyperparameter optimization
+├── optim_shared.py           # Shared utilities for optimizer scripts
+├── optimize.py               # Bayesian hyperparameter optimization
+├── optimize_ga.py            # Genetic Algorithm optimization
+└── optimize_wfa.py           # Walk-Forward Analysis
 strategies/                   # Pre-built strategy JSON files
 tests/                        # pytest test suite
 ```
