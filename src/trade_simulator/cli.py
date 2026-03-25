@@ -29,7 +29,7 @@ def cli(verbose: bool) -> None:
 
 @cli.command()
 @click.option("--feed", required=True, type=click.Choice(["SOLUSD", "BTCUSD", "ETHUSD"], case_sensitive=False), help="Trading pair feed.")
-@click.option("--type", "candle_type", required=True, type=click.Choice(["1", "5", "15", "1h", "1D"]), help="Candle timescale.")
+@click.option("--type", "candle_type", required=True, type=click.Choice(["1", "5", "15", "30", "1h", "1D"]), help="Candle timescale.")
 @click.option("--range", "time_range", required=True, help="Time range, e.g. '1d', '7d', '30d', '6m', '1y'.")
 @click.option("--strategy", "strategy_file", type=click.Path(exists=True), default=None, help="Path to a JSON strategy file.")
 @click.option("--entry-drop", type=float, default=None, help="Simple mode: entry drop percentage.")

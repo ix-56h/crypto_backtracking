@@ -12,7 +12,7 @@ from trade_simulator.models import Candle
 BASE_URL = "https://history.oraclesecurity.org/trading-view/data"
 
 VALID_FEEDS = {"SOLUSD", "BTCUSD", "ETHUSD"}
-VALID_TYPES = {"1", "5", "15", "1h", "1D"}
+VALID_TYPES = {"1", "5", "15", "30", "1h", "1D"}
 
 _RANGE_PATTERN = re.compile(r"^(\d+)([dmyh])$", re.IGNORECASE)
 
@@ -69,6 +69,7 @@ def get_candle_minutes(type_str: str) -> int:
         "1": 1,
         "5": 5,
         "15": 15,
+        "30": 30,
         "1h": 60,
         "1D": 1440,
     }
