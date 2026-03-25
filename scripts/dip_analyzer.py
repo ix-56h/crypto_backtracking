@@ -43,6 +43,7 @@ class DipEvent:
     bounce_pct: float        # (bounce_peak - bottom) / bottom * 100
     dip_candles: int         # number of candles in the dip
     bounce_candles: int      # number of candles in the bounce
+    duration_minutes: float  # dip duration from start to end in minutes
 
 
 def detect_dips(candles: list[Candle], min_dip_pct: float = 0.5) -> list[DipEvent]:
@@ -90,6 +91,7 @@ def detect_dips(candles: list[Candle], min_dip_pct: float = 0.5) -> list[DipEven
                     # Dip ended
                     dip_pct = (dip_start_peak - dip_bottom) / dip_start_peak * 100 if dip_start_peak > 0 else 0
                     if dip_pct >= min_dip_pct:
+                        dur_min = (c.time - dip_start_time).total_seconds() / 60
                         events.append(DipEvent(
                             start_time=dip_start_time,
                             bottom_time=dip_bottom_time,
@@ -101,6 +103,7 @@ def detect_dips(candles: list[Candle], min_dip_pct: float = 0.5) -> list[DipEven
                             bounce_pct=0.0,      # filled in next pass
                             dip_candles=i - dip_start_idx + 1,
                             bounce_candles=0,     # filled in next pass
+                            duration_minutes=dur_min,
                         ))
                     in_dip = False
                     peak_since_reset = c.high
@@ -141,6 +144,7 @@ def print_summary(events: list[DipEvent], feed: str, candle_type: str) -> None:
 
     dip_pcts = [e.dip_pct for e in events]
     bounce_pcts = [e.bounce_pct for e in events if e.bounce_pct > 0]
+    durations = [e.duration_minutes for e in events]
 
     print()
     print("=" * 80)
@@ -162,6 +166,26 @@ def print_summary(events: list[DipEvent], feed: str, candle_type: str) -> None:
     print(f"  │  Max:        {max(dip_pcts):8.2f}%                           │")
     print(f"  │  25th pctl:  {percentile(dip_pcts, 25):8.2f}%                           │")
     print(f"  │  75th pctl:  {percentile(dip_pcts, 75):8.2f}%                           │")
+    print("  └─────────────────────────────────────────────────────────┘")
+
+    # Duration stats
+    def _fmt_dur(minutes: float) -> str:
+        """Format minutes as Xh Ym."""
+        h, m = divmod(int(minutes), 60)
+        return f"{h}h {m:02d}m" if h else f"{m}m"
+
+    print()
+    print("  ┌─────────────────────────────────────────────────────────┐")
+    print("  │                   DIP DURATION                         │")
+    print("  ├─────────────────────────────────────────────────────────┤")
+    print(f"  │  Average:    {_fmt_dur(statistics.mean(durations)):>10s}                          │")
+    print(f"  │  Median:     {_fmt_dur(statistics.median(durations)):>10s}                          │")
+    if len(durations) > 1:
+        print(f"  │  Std Dev:    {_fmt_dur(statistics.stdev(durations)):>10s}                          │")
+    print(f"  │  Min:        {_fmt_dur(min(durations)):>10s}                          │")
+    print(f"  │  Max:        {_fmt_dur(max(durations)):>10s}                          │")
+    print(f"  │  25th pctl:  {_fmt_dur(percentile(durations, 25)):>10s}                          │")
+    print(f"  │  75th pctl:  {_fmt_dur(percentile(durations, 75)):>10s}                          │")
     print("  └─────────────────────────────────────────────────────────┘")
 
     if bounce_pcts:
@@ -189,27 +213,30 @@ def print_summary(events: list[DipEvent], feed: str, candle_type: str) -> None:
     ]
 
     print()
-    print("  ┌───────────────────────┬───────┬──────────┬──────────┬──────────┬──────────┐")
-    print("  │ Dip Bucket            │ Count │ Avg Dip% │ Med Dip% │Avg Bnc%  │Med Bnc%  │")
-    print("  ├───────────────────────┼───────┼──────────┼──────────┼──────────┼──────────┤")
+    print("  ┌───────────────────────┬───────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┐")
+    print("  │ Dip Bucket            │ Count │ Avg Dip% │ Med Dip% │Avg Bnc%  │Med Bnc%  │ Avg Dur  │ Med Dur  │")
+    print("  ├───────────────────────┼───────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤")
 
     for label, lo, hi in buckets:
         bucket_events = [e for e in events if lo <= e.dip_pct < hi]
         if not bucket_events:
-            print(f"  │ {label:21s} │ {0:5d} │     —    │     —    │     —    │     —    │")
+            print(f"  │ {label:21s} │ {0:5d} │     —    │     —    │     —    │     —    │     —    │     —    │")
             continue
 
         b_dips = [e.dip_pct for e in bucket_events]
         b_bounces = [e.bounce_pct for e in bucket_events if e.bounce_pct > 0]
+        b_durs = [e.duration_minutes for e in bucket_events]
 
         avg_dip = statistics.mean(b_dips)
         med_dip = statistics.median(b_dips)
         avg_bnc = statistics.mean(b_bounces) if b_bounces else 0
         med_bnc = statistics.median(b_bounces) if b_bounces else 0
+        avg_dur = _fmt_dur(statistics.mean(b_durs))
+        med_dur = _fmt_dur(statistics.median(b_durs))
 
-        print(f"  │ {label:21s} │ {len(bucket_events):5d} │ {avg_dip:7.2f}% │ {med_dip:7.2f}% │ {avg_bnc:7.2f}% │ {med_bnc:7.2f}% │")
+        print(f"  │ {label:21s} │ {len(bucket_events):5d} │ {avg_dip:7.2f}% │ {med_dip:7.2f}% │ {avg_bnc:7.2f}% │ {med_bnc:7.2f}% │ {avg_dur:>8s} │ {med_dur:>8s} │")
 
-    print("  └───────────────────────┴───────┴──────────┴──────────┴──────────┴──────────┘")
+    print("  └───────────────────────┴───────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘")
 
     # Monthly breakdown
     monthly: dict[str, list[DipEvent]] = {}
@@ -218,21 +245,24 @@ def print_summary(events: list[DipEvent], feed: str, candle_type: str) -> None:
         monthly.setdefault(key, []).append(e)
 
     print()
-    print("  ┌────────────┬───────┬──────────┬──────────┬──────────┬──────────┐")
-    print("  │ Month      │ Count │ Avg Dip% │ Med Dip% │Avg Bnc%  │Med Bnc%  │")
-    print("  ├────────────┼───────┼──────────┼──────────┼──────────┼──────────┤")
+    print("  ┌────────────┬───────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┐")
+    print("  │ Month      │ Count │ Avg Dip% │ Med Dip% │Avg Bnc%  │Med Bnc%  │ Avg Dur  │ Med Dur  │")
+    print("  ├────────────┼───────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤")
 
     for month in sorted(monthly):
         m_events = monthly[month]
         m_dips = [e.dip_pct for e in m_events]
         m_bounces = [e.bounce_pct for e in m_events if e.bounce_pct > 0]
+        m_durs = [e.duration_minutes for e in m_events]
         avg_d = statistics.mean(m_dips)
         med_d = statistics.median(m_dips)
         avg_b = statistics.mean(m_bounces) if m_bounces else 0
         med_b = statistics.median(m_bounces) if m_bounces else 0
-        print(f"  │ {month:10s} │ {len(m_events):5d} │ {avg_d:7.2f}% │ {med_d:7.2f}% │ {avg_b:7.2f}% │ {med_b:7.2f}% │")
+        avg_dur = _fmt_dur(statistics.mean(m_durs))
+        med_dur = _fmt_dur(statistics.median(m_durs))
+        print(f"  │ {month:10s} │ {len(m_events):5d} │ {avg_d:7.2f}% │ {med_d:7.2f}% │ {avg_b:7.2f}% │ {med_b:7.2f}% │ {avg_dur:>8s} │ {med_dur:>8s} │")
 
-    print("  └────────────┴───────┴──────────┴──────────┴──────────┴──────────┘")
+    print("  └────────────┴───────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘")
 
     # Top 10 biggest dips
     sorted_events = sorted(events, key=lambda e: e.dip_pct, reverse=True)
@@ -240,15 +270,16 @@ def print_summary(events: list[DipEvent], feed: str, candle_type: str) -> None:
 
     print()
     print(f"  TOP {len(top_n)} BIGGEST DIPS:")
-    print("  ┌─────┬─────────────────────┬──────────┬──────────┬──────────────┬──────────────┐")
-    print("  │  #  │ Bottom Time         │  Dip %   │ Bounce % │ Peak Before  │   Bottom $   │")
-    print("  ├─────┼─────────────────────┼──────────┼──────────┼──────────────┼──────────────┤")
+    print("  ┌─────┬─────────────────────┬──────────┬──────────┬──────────────┬──────────────┬──────────┐")
+    print("  │  #  │ Bottom Time         │  Dip %   │ Bounce % │ Peak Before  │   Bottom $   │ Duration │")
+    print("  ├─────┼─────────────────────┼──────────┼──────────┼──────────────┼──────────────┼──────────┤")
 
     for rank, e in enumerate(top_n, 1):
         ts = e.bottom_time.strftime("%Y-%m-%d %H:%M")
-        print(f"  │ {rank:3d} │ {ts:19s} │ {e.dip_pct:7.2f}% │ {e.bounce_pct:7.2f}% │ {e.peak_before:>12,.2f} │ {e.bottom:>12,.2f} │")
+        dur = _fmt_dur(e.duration_minutes)
+        print(f"  │ {rank:3d} │ {ts:19s} │ {e.dip_pct:7.2f}% │ {e.bounce_pct:7.2f}% │ {e.peak_before:>12,.2f} │ {e.bottom:>12,.2f} │ {dur:>8s} │")
 
-    print("  └─────┴─────────────────────┴──────────┴──────────┴──────────────┴──────────────┘")
+    print("  └─────┴─────────────────────┴──────────┴──────────┴──────────────┴──────────────┴──────────┘")
 
     # Strategy recommendation
     if bounce_pcts:
@@ -304,6 +335,7 @@ def save_json(events: list[DipEvent], feed: str, candle_type: str) -> Path:
                 "bounce_pct": round(e.bounce_pct, 4),
                 "dip_candles": e.dip_candles,
                 "bounce_candles": e.bounce_candles,
+                "duration_minutes": round(e.duration_minutes, 1),
             }
             for e in events
         ],
