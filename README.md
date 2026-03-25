@@ -218,6 +218,74 @@ The second rule only triggers when the base rule has an open position, measuring
 | `condition` | `has_open_position`, `has_closed_position` | When the child rule is eligible |
 | `drop_from` | `parent_entry`, `current_price` | Reference price for measuring the child's entry drop |
 
+## Dip Analyzer
+
+Analyze historical dip patterns without running any strategy — find average/median dip depth, bounce height, and duration across configurable buckets:
+
+```bash
+uv run python -B scripts/dip_analyzer.py --feed BTCUSD --type 15
+uv run python -B scripts/dip_analyzer.py --feed SOLUSD --type 5 --min-dip 1.0
+uv run python -B scripts/dip_analyzer.py --feed ETHUSD --type 15 --save-json
+```
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--feed` | Trading pair | *required* |
+| `--type` | Candle width (`5` or `15`) | *required* |
+| `--min-dip` | Minimum dip % to include | `0.5` |
+| `--save-json` | Export raw dip data to `output/` | off |
+
+Output includes:
+- **Dip depth** stats (avg, median, std, percentiles)
+- **Bounce height** stats
+- **Dip duration** stats (formatted as Xh Ym)
+- **Bucketed analysis** — Small (0.5–1%), Medium (1–2%), Large (2–3%), Big (3–5%), Crash (5–10%), Extreme (10%+)
+- **Monthly breakdown** table
+- **Top 10 biggest dips** with timestamps and duration
+- **Strategy parameter suggestions** based on the data
+
+## Strategy Optimizer (Bayesian)
+
+Automatically search for the best strategy parameters using Bayesian Optimization (Optuna TPE sampler):
+
+```bash
+# Single rule, 200 trials
+uv run python -B scripts/optimize.py --feed BTCUSD --type 15
+
+# Multi-rule DCA ladder (2 rules, 300 trials)
+uv run python -B scripts/optimize.py --feed SOLUSD --type 15 --rules 2 --trials 300
+
+# Custom objective, reproducible seed
+uv run python -B scripts/optimize.py --feed ETHUSD --type 15 --objective sharpe --seed 42
+```
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--feed` | Trading pair | *required* |
+| `--type` | Candle width (`5` or `15`) | *required* |
+| `--range` | Data range | `1y` |
+| `--trials` | Number of optimization trials | `200` |
+| `--rules` | Number of rules (1–3) | `1` |
+| `--entry-type` | `price_drop` or `price_rise` | `price_drop` |
+| `--objective` | `composite`, `pnl`, `sharpe`, `profit_factor`, `expectancy` | `composite` |
+| `--capital` | Initial capital | `5000` |
+| `--split` | Train/validation ratio | `0.75` |
+| `--seed` | Random seed for reproducibility | random |
+
+**Parameters optimized:**
+- Entry percentage (0.5–15%) and lookback window (1h/2h/4h/1d)
+- Take-profit (0.5–15%) and stop-loss (2–25%)
+- Max concurrent positions (1–10) and max per rule (1–10)
+- Position size ($100–$1000)
+
+**Anti-overfitting:**
+- Walk-forward validation (75/25 train/test split)
+- Minimum 10 trades threshold
+- Overfitting warning when validation score < 50% of train score
+- Train vs validation metrics displayed side by side
+
+The best strategy is auto-exported to `output/optimized_<FEED>_<TYPE>m.json`.
+
 ## Batch Testing
 
 ### Single-asset batch
@@ -263,7 +331,7 @@ Each backtest reports:
 
 ## Pre-built Strategies
 
-The `strategies/` folder contains 26 ready-to-use strategy files organized by research iteration:
+The `strategies/` folder contains 42 ready-to-use strategy files organized by research iteration:
 
 | Directory | Count | Description |
 |-----------|-------|-------------|
@@ -272,6 +340,8 @@ The `strategies/` folder contains 26 ready-to-use strategy files organized by re
 | `strategies/scalping_v2/` | 8 | Round 2 — deep dip mean reversion |
 | `strategies/scalping_v3/` | 8 | Round 3 — optimized DCA + protective SL |
 | `strategies/champions/` | 8 | Finals — best performers tested cross-asset |
+| `strategies/big_dip/` | 8 | Big-dip strategies targeting 3–7% drops |
+| `strategies/dip_data/` | 8 | Data-driven from dip analyzer bucket statistics |
 
 **Top performer:** `champions/02_deep_guarded.json` — 5% dip entry, 3% TP, 12% SL. Averaged 82% win rate and PF 1.07 across BTC, SOL, and ETH over 1 year of 15-minute data.
 
@@ -294,7 +364,9 @@ src/trade_simulator/
 └── strategy.py   # Pydantic strategy schema and validation
 scripts/
 ├── batch_backtest.py         # Single-asset batch runner
-└── multi_asset_backtest.py   # Multi-asset batch runner
+├── multi_asset_backtest.py   # Multi-asset batch runner
+├── dip_analyzer.py           # Dip depth/bounce/duration analysis
+└── optimize.py               # Bayesian hyperparameter optimization
 strategies/                   # Pre-built strategy JSON files
 tests/                        # pytest test suite
 ```
