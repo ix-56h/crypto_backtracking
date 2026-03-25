@@ -1,0 +1,15 @@
+{
+  "_description": "Crash dip avg: entry 6.64% dip, TP at avg bounce 4.90%, SL 15%",
+  "initial_capital": 5000,
+  "fee_pct": 0.1,
+  "max_concurrent_positions": 5,
+  "position_sizing": { "type": "fixed", "value": 400 },
+  "rules": [
+    {
+      "id": "crash_avg",
+      "entry": { "type": "price_drop", "percentage": 6.64, "window": "4h" },
+      "exit": { "take_profit_pct": 4.90, "stop_loss_pct": 15.0 },
+      "max_positions": 5
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "_description": "Cascade: big dip base → crash add-on from base entry price",
+  "initial_capital": 5000,
+  "fee_pct": 0.1,
+  "max_concurrent_positions": 6,
+  "position_sizing": { "type": "fixed", "value": 300 },
+  "rules": [
+    {
+      "id": "base",
+      "entry": { "type": "price_drop", "percentage": 3.46, "window": "4h" },
+      "exit": { "take_profit_pct": 3.64, "stop_loss_pct": 12.0 },
+      "max_positions": 3,
+      "children": [
+        {
+          "id": "crash_addon",
+          "entry": { "type": "price_drop_from_parent", "percentage": 3.0 },
+          "exit": { "take_profit_pct": 4.43, "stop_loss_pct": 15.0 },
+          "max_positions": 3
+        }
+      ]
+    }
+  ]
+}

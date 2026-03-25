@@ -1,0 +1,15 @@
+{
+  "_description": "Conservative big dip: entry at 3.46%, TP at half median bounce 1.82% for faster fills, SL 8%",
+  "initial_capital": 5000,
+  "fee_pct": 0.1,
+  "max_concurrent_positions": 5,
+  "position_sizing": { "type": "fixed", "value": 300 },
+  "rules": [
+    {
+      "id": "big_conservative",
+      "entry": { "type": "price_drop", "percentage": 3.46, "window": "4h" },
+      "exit": { "take_profit_pct": 1.82, "stop_loss_pct": 8.0 },
+      "max_positions": 5
+    }
+  ]
+}
