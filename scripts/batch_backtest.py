@@ -5,7 +5,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
+import time
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 # Add project root to path
@@ -41,41 +44,52 @@ def find_strategies(strategy_dir: Path) -> list[Path]:
     return sorted(strategy_dir.rglob("*.json"))
 
 
-def run_all_strategies(candles, strategy_dir: Path, candle_type: str, feed: str, time_range: str):
-    """Run all strategy files and collect results."""
+def _run_one(strategy_path: Path, strategy_dir: Path, candles, candle_type: str, feed: str, time_range: str):
+    """Run a single strategy and return (name, result). Used by process pool."""
+    rel = strategy_path.relative_to(strategy_dir)
+    name = str(rel.with_suffix(""))
+    strategy = Strategy.from_file(strategy_path)
+    result = run_simulation(candles, strategy, candle_type, feed, time_range)
+    return name, result
+
+
+def run_all_strategies(candles, strategy_dir: Path, candle_type: str, feed: str, time_range: str, workers: int):
+    """Run all strategy files in parallel and collect results."""
     strategy_files = find_strategies(strategy_dir)
     if not strategy_files:
         print(f"No strategy files found in {strategy_dir}")
         return []
 
-    print(f"\nFound {len(strategy_files)} strategies in {strategy_dir}")
+    total = len(strategy_files)
+    print(f"\nFound {total} strategies in {strategy_dir}")
+    print(f"Running with {workers} worker process{'es' if workers > 1 else ''}...\n")
 
-    results = []
-    for sf in strategy_files:
-        # Show path relative to strategy dir for nested folders
-        rel = sf.relative_to(strategy_dir)
-        name = str(rel.with_suffix(""))
-        print(f"\n{'='*60}")
-        print(f"  Running: {name}")
-        print(f"{'='*60}")
+    results: list[tuple[str, object]] = []
+    t0 = time.monotonic()
 
-        strategy = Strategy.from_file(sf)
-        result = run_simulation(candles, strategy, candle_type, feed, time_range)
-        results.append((name, result))
+    with ProcessPoolExecutor(max_workers=workers) as pool:
+        futures = {
+            pool.submit(_run_one, sf, strategy_dir, candles, candle_type, feed, time_range): sf
+            for sf in strategy_files
+        }
+        for i, future in enumerate(as_completed(futures), 1):
+            name, result = future.result()
+            results.append((name, result))
 
-        # Quick summary
-        wr_mark = "✓" if result.win_rate >= 60 else "✗"
-        pnl_mark = "✓" if result.total_pnl > 0 else "✗"
-        print(f"  Trades: {result.total_trades:>5}")
-        print(f"  WinRate: {result.win_rate:>6.1f}% {wr_mark}")
-        print(f"  PnL:    ${result.total_pnl:>10,.2f} ({result.total_pnl_pct:+.2f}%) {pnl_mark}")
-        print(f"  Expect: ${result.expectancy:>8,.4f}/trade")
-        print(f"  Sharpe: {result.sharpe_ratio:>8.4f}")
-        print(f"  PF:     {result.profit_factor:>8.2f}")
-        print(f"  MaxDD:  {result.max_drawdown_pct:>6.2f}%")
-        print(f"  AvgDur: {result.avg_duration_minutes / 60:>6.1f}h")
-        print(f"  Streaks: W={result.max_consecutive_wins} L={result.max_consecutive_losses}")
+            wr_mark = "✓" if result.win_rate >= 60 else "✗"
+            pnl_mark = "✓" if result.total_pnl > 0 else "✗"
+            print(
+                f"  [{i:>{len(str(total))}}/{total}] {name:<35} "
+                f"trades={result.total_trades:<4} WR={result.win_rate:>5.1f}% {wr_mark}  "
+                f"PnL=${result.total_pnl:>10,.2f} {pnl_mark}  "
+                f"Sharpe={result.sharpe_ratio:>7.4f}  PF={result.profit_factor:>6.2f}"
+            )
 
+    elapsed = time.monotonic() - t0
+    print(f"\nCompleted {total} backtests in {elapsed:.1f}s")
+
+    # Sort by name for consistent table ordering
+    results.sort(key=lambda x: x[0])
     return results
 
 
@@ -166,6 +180,8 @@ def main():
                         help="Data range (default: 1y)")
     parser.add_argument("--strategies", default=None,
                         help="Path to strategy directory (default: strategies/ recursive)")
+    parser.add_argument("--workers", type=int, default=os.cpu_count() or 4,
+                        help=f"Parallel worker processes (default: {os.cpu_count() or 4})")
     args = parser.parse_args()
 
     if args.strategies:
@@ -178,7 +194,7 @@ def main():
         sys.exit(1)
 
     candles = fetch_data(args.feed, args.candle_type, args.time_range)
-    results = run_all_strategies(candles, strategy_dir, args.candle_type, args.feed, args.time_range)
+    results = run_all_strategies(candles, strategy_dir, args.candle_type, args.feed, args.time_range, args.workers)
     print_comparison_table(results)
 
 
